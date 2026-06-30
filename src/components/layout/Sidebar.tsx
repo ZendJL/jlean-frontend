@@ -4,17 +4,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, BookOpen, UtensilsCrossed, Pill,
-  Moon, Timer, User, LogOut,
+  Moon, Timer, User, LogOut, CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
-  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/daily-log',  label: 'Daily Log',  icon: BookOpen },
-  { href: '/recipes',    label: 'Recipes',    icon: UtensilsCrossed },
-  { href: '/supplements',label: 'Supplements',icon: Pill },
-  { href: '/sleep',      label: 'Sleep',      icon: Moon },
-  { href: '/fasting',    label: 'Fasting',    icon: Timer },
+  { href: '/dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
+  { href: '/daily-log',   label: 'Daily Log',   icon: BookOpen },
+  { href: '/day-types',   label: 'Day Types',   icon: CalendarDays },
+  { href: '/recipes',     label: 'Recipes',     icon: UtensilsCrossed },
+  { href: '/supplements', label: 'Supplements', icon: Pill },
+  { href: '/sleep',       label: 'Sleep',       icon: Moon },
+  { href: '/fasting',     label: 'Fasting',     icon: Timer },
 ]
 
 export default function Sidebar() {
