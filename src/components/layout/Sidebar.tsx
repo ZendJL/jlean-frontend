@@ -3,78 +3,65 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard,
-  Apple,
-  ChefHat,
-  BookOpen,
-  Pill,
-  Moon,
-  User,
-  LogOut,
-  CalendarDays,
+  LayoutDashboard, BookOpen, UtensilsCrossed, Pill,
+  Moon, Timer, User, LogOut,
 } from 'lucide-react'
-import Logo from '@/components/ui/Logo'
-import { useAuthStore } from '@/lib/stores/auth.store'
 import { cn } from '@/lib/utils'
 
-const navItems = [
-  { href: '/dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
-  { href: '/daily-log',   label: 'Daily Log',   icon: BookOpen },
-  { href: '/foods',       label: 'Foods',       icon: Apple },
-  { href: '/recipes',     label: 'Recipes',     icon: ChefHat },
-  { href: '/supplements', label: 'Supplements', icon: Pill },
-  { href: '/sleep',       label: 'Sleep',       icon: Moon },
-  { href: '/day-types',   label: 'Day Types',   icon: CalendarDays },
-  { href: '/profile',     label: 'Profile',     icon: User },
+const NAV = [
+  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
+  { href: '/daily-log',  label: 'Daily Log',  icon: BookOpen },
+  { href: '/recipes',    label: 'Recipes',    icon: UtensilsCrossed },
+  { href: '/supplements',label: 'Supplements',icon: Pill },
+  { href: '/sleep',      label: 'Sleep',      icon: Moon },
+  { href: '/fasting',    label: 'Fasting',    icon: Timer },
 ]
 
 export default function Sidebar() {
-  const pathname = usePathname()
-  const clearAuth = useAuthStore((s) => s.clearAuth)
+  const path = usePathname()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[240px] flex flex-col bg-surface border-r border-border z-40">
+    <aside className="flex flex-col w-56 shrink-0 bg-surface border-r border-border h-screen sticky top-0">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
-        <Logo size={28} />
-        <span className="font-semibold text-text tracking-tight text-lg">JLean</span>
+      <div className="px-5 py-5 border-b border-border">
+        <span className="text-lg font-bold text-text tracking-tight">JLean</span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2">
-        <ul className="space-y-0.5">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/')
-            return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-[180ms]',
-                    active
-                      ? 'bg-surface-offset text-primary font-medium'
-                      : 'text-text-muted hover:bg-surface-offset hover:text-text',
-                  )}
-                >
-                  <Icon
-                    size={18}
-                    className={active ? 'text-primary' : 'text-text-faint'}
-                  />
-                  {label}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+      <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+        {NAV.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+              path === href || path.startsWith(href + '/')
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-text-muted hover:text-text hover:bg-surface-2',
+            )}
+          >
+            <Icon size={16} />
+            {label}
+          </Link>
+        ))}
       </nav>
 
-      {/* Logout */}
-      <div className="px-2 py-3 border-t border-border">
-        <button
-          onClick={clearAuth}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-text-muted hover:bg-surface-offset hover:text-error transition-all duration-[180ms]"
+      {/* Bottom */}
+      <div className="px-2 py-4 border-t border-border space-y-0.5">
+        <Link
+          href="/profile"
+          className={cn(
+            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+            path === '/profile'
+              ? 'bg-primary/10 text-primary font-medium'
+              : 'text-text-muted hover:text-text hover:bg-surface-2',
+          )}
         >
-          <LogOut size={18} />
+          <User size={16} />
+          Profile
+        </Link>
+        <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-text-muted hover:text-error hover:bg-error/10 w-full transition-colors">
+          <LogOut size={16} />
           Sign out
         </button>
       </div>
