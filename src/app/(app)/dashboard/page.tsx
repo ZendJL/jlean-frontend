@@ -5,12 +5,15 @@ import MacroCard from '@/components/dashboard/MacroCard'
 import MealSection from '@/components/dashboard/MealSection'
 import { Lightbulb } from 'lucide-react'
 
+// Keys must match backend: consumed.calories | consumed.protein | consumed.carbs | consumed.fat
 const MACRO_CONFIG = [
-  { key: 'calories', label: 'Calories', unit: 'kcal', color: 'var(--color-primary)',  progressKey: 'calories' },
-  { key: 'proteinG', label: 'Protein',  unit: 'g',    color: 'var(--color-protein)',  progressKey: 'proteinG' },
-  { key: 'carbsG',   label: 'Carbs',    unit: 'g',    color: 'var(--color-carbs)',    progressKey: 'carbsG'   },
-  { key: 'fatG',     label: 'Fat',      unit: 'g',    color: 'var(--color-fat)',      progressKey: 'fatG'     },
+  { key: 'calories', label: 'Calories', unit: 'kcal', color: 'var(--color-primary)' },
+  { key: 'protein',  label: 'Protein',  unit: 'g',    color: 'var(--color-protein)'  },
+  { key: 'carbs',    label: 'Carbs',    unit: 'g',    color: 'var(--color-carbs)'    },
+  { key: 'fat',      label: 'Fat',      unit: 'g',    color: 'var(--color-fat)'      },
 ] as const
+
+type MacroKey = typeof MACRO_CONFIG[number]['key']
 
 const MEAL_ORDER = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK', 'OTHER']
 
@@ -68,17 +71,21 @@ export default function DashboardPage() {
 
       {/* Macro cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {MACRO_CONFIG.map(({ key, label, unit, color, progressKey }) => (
-          <MacroCard
-            key={key}
-            label={label}
-            consumed={data.consumed[key] as number}
-            target={data.targets[key] as number}
-            unit={unit}
-            color={color}
-            progress={data.progress[progressKey]}
-          />
-        ))}
+        {MACRO_CONFIG.map(({ key, label, unit, color }) => {
+          const consumed = data.consumed[key as MacroKey] ?? 0
+          const target   = data.targets[key as MacroKey] ?? 1
+          return (
+            <MacroCard
+              key={key}
+              label={label}
+              consumed={consumed}
+              target={target}
+              unit={unit}
+              color={color}
+              progress={target > 0 ? consumed / target : 0}
+            />
+          )
+        })}
       </div>
 
       {/* Remaining summary */}
@@ -88,7 +95,7 @@ export default function DashboardPage() {
           {MACRO_CONFIG.map(({ key, label, unit, color }) => (
             <div key={key} className="text-center">
               <p className="text-lg font-semibold" style={{ color }}>
-                {data.remaining[key] as number}
+                {data.remaining[key as MacroKey] ?? 0}
               </p>
               <p className="text-text-faint text-xs">{label} {unit}</p>
             </div>
@@ -96,22 +103,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Insights */}
-      {data.insights.length > 0 && (
-        <div className="space-y-2">
-          {data.insights.map((msg, i) => (
-            <div key={i} className="flex items-start gap-3 bg-surface rounded-xl border border-border px-4 py-3">
-              <Lightbulb size={16} className="text-warning shrink-0 mt-0.5" />
-              <p className="text-sm text-text-muted">{msg}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Meals */}
       {sortedMeals.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-text uppercase tracking-wide">Today's meals</h3>
+          <h3 className="text-sm font-semibold text-text uppercase tracking-wide">Today&apos;s meals</h3>
           {sortedMeals.map((meal) => (
             <MealSection key={meal} mealType={meal} data={data.meals[meal]} />
           ))}
