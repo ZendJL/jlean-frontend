@@ -14,15 +14,31 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Manejar 401 — limpiar sesión y redirigir a login
+// Manejar respuestas de error globalmente
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
+    const status = error.response?.status
+
+    // 401 — sesión expirada, limpiar y redirigir
+    if (status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       window.location.href = '/login'
     }
+
+    // 429 — propagar con metadatos para que los componentes muestren banner
+    if (status === 429) {
+      const retryAfter = error.response?.headers?.['retry-after']
+      error.isRateLimited = true
+      error.retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 60
+    }
+
+    // 503 / red caída — marcar para fallback visual
+    if (!error.response || status >= 500) {
+      error.isServiceUnavailable = true
+    }
+
     return Promise.reject(error)
   },
 )
