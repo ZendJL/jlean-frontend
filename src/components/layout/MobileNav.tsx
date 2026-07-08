@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BookOpen, UtensilsCrossed, Pill, Moon } from 'lucide-react'
+import { LayoutDashboard, BookOpen, UtensilsCrossed, Pill, Salad } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
-  { href: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/daily-log',  label: 'Log',        icon: BookOpen },
-  { href: '/recipes',    label: 'Recipes',    icon: UtensilsCrossed },
-  { href: '/supplements',label: 'Supps',     icon: Pill },
-  { href: '/sleep',      label: 'Sleep',      icon: Moon },
+  { href: '/dashboard',   label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/daily-log',   label: 'Log',        icon: BookOpen },
+  { href: '/foods',       label: 'Foods',      icon: Salad },
+  { href: '/recipes',     label: 'Recipes',    icon: UtensilsCrossed },
+  { href: '/supplements', label: 'Supps',      icon: Pill },
 ]
 
 export default function MobileNav() {
