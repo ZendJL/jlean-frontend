@@ -1,30 +1,9 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import api from '@/lib/api/client'
+import { useState } from 'react'
+import { useFoodsSearch, INITIAL_API_STATE } from '@/lib/hooks/useFoods'
+import { type FoodSource, type FoodResult } from '@/lib/api/foods.api'
 import RateLimitBanner, { ConnectionErrorBanner } from '@/components/ui/RateLimitBanner'
-
-type FoodSource = 'internal' | 'usda' | 'off'
-
-interface FoodResult {
-  id:       string
-  name:     string
-  calories: number
-  proteinG: number
-  carbsG:   number
-  fatG:     number
-  source:   FoodSource
-  qualityStatus?: 'COMPLETE' | 'PARTIAL' | 'UNVERIFIED' | 'CONFLICTED'
-}
-
-interface ExternalApiState {
-  rateLimited: boolean
-  unavailable: boolean
-  retryAfterSeconds: number
-}
-
-const INITIAL_API_STATE: ExternalApiState = { rateLimited: false, unavailable: false, retryAfterSeconds: 60 }
 
 const QUALITY_CONFIG: Record<string, { label: string; color: string }> = {
   COMPLETE:   { label: 'Complete',   color: 'text-green-600  dark:text-green-400' },
@@ -35,111 +14,66 @@ const QUALITY_CONFIG: Record<string, { label: string; color: string }> = {
 
 const SOURCE_LABELS: Record<FoodSource, string> = {
   internal: 'My Foods',
+  preset:   'Presets',
   usda:     'USDA',
   off:      'Open Food Facts',
 }
 
-const SOURCE_API_KEY: Record<FoodSource, string> = {
-  internal: '',
-  usda:     'USDA',
-  off:      'Open Food Facts',
+const TABS: FoodSource[] = ['internal', 'preset', 'usda', 'off']
+
+interface FoodSearchBarProps {
+  /** Callback cuando el usuario selecciona un alimento */
+  onSelect?: (food: Pick<FoodResult, 'id' | 'name'>) => void
+  placeholder?: string
+  /** Si es true, no muestra los tabs de fuente (modo compacto para modales) */
+  compact?: boolean
 }
 
-function useDebounce<T>(value: T, delay = 500): T {
-  const [debounced, setDebounced] = useState(value)
-  const timer = useRef<ReturnType<typeof setTimeout>>()
-  const set = useCallback(
-    (v: T) => {
-      clearTimeout(timer.current)
-      timer.current = setTimeout(() => setDebounced(v), delay)
-    },
-    [delay],
-  )
-  if (value !== debounced) set(value)
-  return debounced
-}
-
-export default function FoodSearchBar() {
+export default function FoodSearchBar({ onSelect, placeholder, compact = false }: FoodSearchBarProps) {
   const [query,     setQuery]     = useState('')
   const [activeTab, setActiveTab] = useState<FoodSource>('internal')
-  const [usdaState, setUsdaState] = useState<ExternalApiState>(INITIAL_API_STATE)
-  const [offState,  setOffState]  = useState<ExternalApiState>(INITIAL_API_STATE)
 
-  const debouncedQuery = useDebounce(query, 500)
+  const { data, isFetching, apiError, clearError, debouncedQuery } = useFoodsSearch(query, activeTab)
 
-  const getApiState  = (tab: FoodSource) => tab === 'usda' ? usdaState : tab === 'off' ? offState : INITIAL_API_STATE
-  const setApiState  = (tab: FoodSource, patch: Partial<ExternalApiState>) => {
-    if (tab === 'usda') setUsdaState(prev => ({ ...prev, ...patch }))
-    if (tab === 'off')  setOffState(prev  => ({ ...prev, ...patch }))
+  const isExternal     = activeTab === 'usda' || activeTab === 'off'
+  const apiLabel       = SOURCE_LABELS[activeTab]
+
+  const handleSelect = (food: FoodResult) => {
+    onSelect?.({ id: food.id, name: food.name })
   }
-
-  const { data, isFetching } = useQuery<FoodResult[]>({
-    queryKey: ['foods', activeTab, debouncedQuery],
-    queryFn: async () => {
-      if (!debouncedQuery.trim()) return []
-      try {
-        const res = await api.get<FoodResult[]>('/foods/search', {
-          params: { q: debouncedQuery, source: activeTab },
-        })
-        // Éxito — resetear estado de error del tab activo
-        setApiState(activeTab, INITIAL_API_STATE)
-        return res.data
-      } catch (err: unknown) {
-        const e = err as { response?: { status?: number }; isRateLimited?: boolean; isServiceUnavailable?: boolean; retryAfterSeconds?: number }
-        if (e.isRateLimited || e.response?.status === 429) {
-          setApiState(activeTab, {
-            rateLimited: true,
-            unavailable: false,
-            retryAfterSeconds: e.retryAfterSeconds ?? 60,
-          })
-        } else if (e.isServiceUnavailable || !e.response) {
-          setApiState(activeTab, { unavailable: true, rateLimited: false, retryAfterSeconds: 60 })
-        }
-        // Devolver vacío — el backend ya hace fallback al catálogo local
-        return []
-      }
-    },
-    enabled: debouncedQuery.trim().length > 1,
-    staleTime: 1000 * 60 * 5,
-  })
-
-  const currentApiState = getApiState(activeTab)
-  const isExternal      = activeTab !== 'internal'
-  const apiLabel        = SOURCE_API_KEY[activeTab]
 
   return (
     <div className="space-y-3">
-      {/* Banners de error de APIs externas */}
-      {isExternal && currentApiState.rateLimited && (
+      {/* Banners rate-limit / unavailable */}
+      {isExternal && apiError.rateLimited && (
         <RateLimitBanner
           source={apiLabel}
-          retryAfterSeconds={currentApiState.retryAfterSeconds}
-          onDismiss={() => setApiState(activeTab, INITIAL_API_STATE)}
+          retryAfterSeconds={apiError.retryAfterSeconds}
+          onDismiss={clearError}
         />
       )}
-      {isExternal && currentApiState.unavailable && (
-        <ConnectionErrorBanner
-          source={apiLabel}
-          onDismiss={() => setApiState(activeTab, INITIAL_API_STATE)}
-        />
+      {isExternal && apiError.unavailable && (
+        <ConnectionErrorBanner source={apiLabel} onDismiss={clearError} />
       )}
 
-      {/* Tabs de fuente */}
-      <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
-        {(['internal', 'usda', 'off'] as FoodSource[]).map((src) => (
-          <button
-            key={src}
-            onClick={() => setActiveTab(src)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === src
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-            }`}
-          >
-            {SOURCE_LABELS[src]}
-          </button>
-        ))}
-      </div>
+      {/* Tabs */}
+      {!compact && (
+        <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
+          {TABS.map((src) => (
+            <button
+              key={src}
+              onClick={() => { setActiveTab(src); setQuery('') }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeTab === src
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+              }`}
+            >
+              {SOURCE_LABELS[src]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Input */}
       <div className="relative">
@@ -147,14 +81,15 @@ export default function FoodSearchBar() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={`Search in ${SOURCE_LABELS[activeTab]}…`}
-          disabled={isExternal && currentApiState.rateLimited}
+          placeholder={placeholder ?? `Search in ${SOURCE_LABELS[activeTab]}…`}
+          disabled={isExternal && (apiError.rateLimited || apiError.unavailable)}
           className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800
                      px-4 py-2.5 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500
                      disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {isFetching && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full
+                           border-2 border-emerald-500 border-t-transparent" />
         )}
       </div>
 
@@ -166,13 +101,17 @@ export default function FoodSearchBar() {
         </p>
       )}
 
-      {/* Lista de resultados */}
+      {/* Lista */}
       {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 dark:divide-gray-700 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden max-h-80 overflow-y-auto">
+        <ul className="divide-y divide-gray-100 dark:divide-gray-700 rounded-xl border border-gray-200
+                       dark:border-gray-700 overflow-hidden max-h-80 overflow-y-auto">
           {data.map((food) => (
             <li
               key={`${food.source}-${food.id}`}
-              className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer"
+              onClick={() => handleSelect(food)}
+              className={`flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800
+                          hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors
+                          ${onSelect ? 'cursor-pointer' : ''}`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
