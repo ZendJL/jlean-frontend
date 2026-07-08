@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, BookOpen, UtensilsCrossed, Pill,
-  Moon, Timer, User, LogOut, CalendarDays,
+  Moon, Timer, User, LogOut, CalendarDays, Salad,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -12,6 +12,7 @@ const NAV = [
   { href: '/dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
   { href: '/daily-log',   label: 'Daily Log',   icon: BookOpen },
   { href: '/day-types',   label: 'Day Types',   icon: CalendarDays },
+  { href: '/foods',       label: 'Foods',       icon: Salad },
   { href: '/recipes',     label: 'Recipes',     icon: UtensilsCrossed },
   { href: '/supplements', label: 'Supplements', icon: Pill },
   { href: '/sleep',       label: 'Sleep',       icon: Moon },
