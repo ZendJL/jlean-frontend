@@ -1,55 +1,38 @@
-import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { foodsApi, type FoodSource, type CreateFoodDto } from '@/lib/api/foods.api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import api from '@/lib/api/client'
 
-export const INITIAL_API_STATE = { rateLimited: false, unavailable: false, retryAfterSeconds: undefined as number | undefined }
-
-export function useFoodsSearch(query: string, source: FoodSource) {
-  const [debouncedQuery, setDebouncedQuery] = useState(query)
-  const [apiError, setApiError] = useState(INITIAL_API_STATE)
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), 400)
-    return () => clearTimeout(t)
-  }, [query])
-
-  const { data, isFetching, error } = useQuery({
-    queryKey: ['foods', 'search', source, debouncedQuery],
-    queryFn:  () => foodsApi.search(debouncedQuery, source),
-    enabled:  debouncedQuery.trim().length > 1,
-    staleTime: 1000 * 60 * 5,
-    retry: false,
-  })
-
-  useEffect(() => {
-    if (!error) { setApiError(INITIAL_API_STATE); return }
-    const e = error as any
-    if (e?.response?.status === 429) {
-      const retryAfter = e.response.headers?.['retry-after']
-      setApiError({ rateLimited: true, unavailable: false, retryAfterSeconds: retryAfter ? Number(retryAfter) : undefined })
-    } else if (e?.code === 'ERR_NETWORK' || e?.response?.status >= 500) {
-      setApiError({ rateLimited: false, unavailable: true, retryAfterSeconds: undefined })
-    }
-  }, [error])
-
-  const clearError = () => setApiError(INITIAL_API_STATE)
-
-  return { data, isFetching, apiError, clearError, debouncedQuery }
+export interface FoodSourceOption {
+  value: string
+  label: string
+  qualityStatus?: string
+  fallbackMessage?: string
 }
 
-export function useFoodDetail(foodId: string) {
+export function useFoods() {
   return useQuery({
-    queryKey: ['foods', 'detail', foodId],
-    queryFn:  () => foodsApi.detail(foodId),
-    enabled:  !!foodId,
-    staleTime: 1000 * 60 * 10,
+    queryKey: ['foods'],
+    queryFn: () => api.get('/foods').then(r => r.data),
+  })
+}
+
+export function useFoodSources() {
+  return useQuery({
+    queryKey: ['foods', 'sources'],
+    queryFn: () => api.get<FoodSourceOption[]>('/foods/sources').then(r => r.data),
+    retry: false,
+    placeholderData: [
+      { value: 'CUSTOM', label: 'Custom', qualityStatus: 'COMPLETE' },
+      { value: 'PRESET', label: 'Preset', qualityStatus: 'COMPLETE' },
+      { value: 'USDA', label: 'USDA', qualityStatus: 'PARTIAL', fallbackMessage: 'External source unavailable, using cached or local data.' },
+      { value: 'OFF', label: 'Open Food Facts', qualityStatus: 'UNVERIFIED', fallbackMessage: 'Search is manual-only and may fall back to internal foods.' },
+    ],
   })
 }
 
 export function useCreateFood() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (dto: CreateFoodDto) => foodsApi.create(dto),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['foods'] }),
+    mutationFn: (payload: any) => api.post('/foods', payload).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['foods'] }),
   })
 }
