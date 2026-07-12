@@ -1,34 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { recipesApi, CreateRecipeDto, AddIngredientDto } from '@/lib/api/recipes.api'
+import { recipesApi } from '@/lib/api/recipes.api'
 
 export function useRecipes() {
-  return useQuery({ queryKey: ['recipes'], queryFn: recipesApi.list })
-}
-
-export function useRecipe(id: string) {
-  return useQuery({ queryKey: ['recipes', id], queryFn: () => recipesApi.get(id), enabled: !!id })
+  return useQuery({
+    queryKey: ['recipes'],
+    queryFn:  recipesApi.list,
+    staleTime: 1000 * 60 * 5,
+  })
 }
 
 export function useCreateRecipe() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (dto: CreateRecipeDto) => recipesApi.create(dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['recipes'] }),
-  })
-}
-
-export function useAddIngredient(recipeId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (dto: AddIngredientDto) => recipesApi.addIngredient(recipeId, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['recipes', recipeId] }),
+    mutationFn: recipesApi.create,
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['recipes'] }),
   })
 }
 
 export function useDeleteRecipe() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => recipesApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['recipes'] }),
+    mutationFn: (id: string) => recipesApi.remove(id),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['recipes'] }),
+  })
+}
+
+export function useAddIngredient(recipeId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { foodId: string; quantityG: number }) =>
+      recipesApi.addIngredient(recipeId, body),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['recipes'] }),
+  })
+}
+
+export function useRemoveIngredient(recipeId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ingredientId: string) => recipesApi.removeIngredient(recipeId, ingredientId),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['recipes'] }),
   })
 }

@@ -1,73 +1,55 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { foodsApi, type FoodSource, type FoodResult, type FoodDetail } from '@/lib/api/foods.api'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { foodsApi, type FoodSource, type CreateFoodDto } from '@/lib/api/foods.api'
 
-export function useDebounce<T>(value: T, delay = 500): T {
-  const [debounced, setDebounced] = useState<T>(value)
-  const timer = useRef<ReturnType<typeof setTimeout>>()
-
-  useEffect(() => {
-    clearTimeout(timer.current)
-    timer.current = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(timer.current)
-  }, [value, delay])
-
-  return debounced
-}
-
-export interface ApiErrorState {
-  rateLimited:       boolean
-  unavailable:       boolean
-  retryAfterSeconds: number
-}
-
-export const INITIAL_API_STATE: ApiErrorState = {
-  rateLimited: false,
-  unavailable: false,
-  retryAfterSeconds: 60,
-}
+export const INITIAL_API_STATE = { rateLimited: false, unavailable: false, retryAfterSeconds: undefined as number | undefined }
 
 export function useFoodsSearch(query: string, source: FoodSource) {
-  const debouncedQuery = useDebounce(query, 500)
-  const [apiError, setApiError] = useState<ApiErrorState>(INITIAL_API_STATE)
+  const [debouncedQuery, setDebouncedQuery] = useState(query)
+  const [apiError, setApiError] = useState(INITIAL_API_STATE)
 
-  const result = useQuery<FoodResult[]>({
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 400)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const { data, isFetching, error } = useQuery({
     queryKey: ['foods', 'search', source, debouncedQuery],
-    queryFn: async () => {
-      if (!debouncedQuery.trim()) return []
-      try {
-        const data = await foodsApi.search({ q: debouncedQuery, source })
-        setApiError(INITIAL_API_STATE)
-        return data
-      } catch (err: unknown) {
-        const e = err as {
-          isRateLimited?: boolean
-          isServiceUnavailable?: boolean
-          retryAfterSeconds?: number
-          response?: { status?: number }
-        }
-        if (e.isRateLimited || e.response?.status === 429) {
-          setApiError({ rateLimited: true, unavailable: false, retryAfterSeconds: e.retryAfterSeconds ?? 60 })
-        } else if (e.isServiceUnavailable || !e.response) {
-          setApiError({ rateLimited: false, unavailable: true, retryAfterSeconds: 60 })
-        }
-        return []
-      }
-    },
-    enabled: debouncedQuery.trim().length > 1,
+    queryFn:  () => foodsApi.search(debouncedQuery, source),
+    enabled:  debouncedQuery.trim().length > 1,
     staleTime: 1000 * 60 * 5,
+    retry: false,
   })
 
-  const clearError = useCallback(() => setApiError(INITIAL_API_STATE), [])
+  useEffect(() => {
+    if (!error) { setApiError(INITIAL_API_STATE); return }
+    const e = error as any
+    if (e?.response?.status === 429) {
+      const retryAfter = e.response.headers?.['retry-after']
+      setApiError({ rateLimited: true, unavailable: false, retryAfterSeconds: retryAfter ? Number(retryAfter) : undefined })
+    } else if (e?.code === 'ERR_NETWORK' || e?.response?.status >= 500) {
+      setApiError({ rateLimited: false, unavailable: true, retryAfterSeconds: undefined })
+    }
+  }, [error])
 
-  return { ...result, apiError, clearError, debouncedQuery }
+  const clearError = () => setApiError(INITIAL_API_STATE)
+
+  return { data, isFetching, apiError, clearError, debouncedQuery }
 }
 
-export function useFoodDetail(id: string | null) {
-  return useQuery<FoodDetail>({
-    queryKey: ['foods', 'detail', id],
-    queryFn: () => foodsApi.getById(id!),
-    enabled: !!id,
+export function useFoodDetail(foodId: string) {
+  return useQuery({
+    queryKey: ['foods', 'detail', foodId],
+    queryFn:  () => foodsApi.detail(foodId),
+    enabled:  !!foodId,
     staleTime: 1000 * 60 * 10,
+  })
+}
+
+export function useCreateFood() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dto: CreateFoodDto) => foodsApi.create(dto),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: ['foods'] }),
   })
 }
