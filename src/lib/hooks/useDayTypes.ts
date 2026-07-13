@@ -4,14 +4,14 @@ import { dayTypesApi } from '../api/dayTypes.api'
 export function useDayTypes() {
   return useQuery({
     queryKey: ['day-types'],
-    queryFn: dayTypesApi.getAll,
+    queryFn:  dayTypesApi.getAll,
   })
 }
 
 export function useTodayAssignment() {
   return useQuery({
     queryKey: ['day-types', 'today'],
-    queryFn: dayTypesApi.getTodayAssignment,
+    queryFn:  dayTypesApi.getToday,        // fix: era getTodayAssignment
   })
 }
 
@@ -19,7 +19,7 @@ export function useAssignDayType() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ dayTypeId, date }: { dayTypeId: string; date: string }) =>
-      dayTypesApi.assignToDate(dayTypeId, date),
+      dayTypesApi.assign(dayTypeId, date), // fix: era assignToDate
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['day-types', 'today'] })
       qc.invalidateQueries({ queryKey: ['diary'] })
