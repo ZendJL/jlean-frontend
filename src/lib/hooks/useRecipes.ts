@@ -20,7 +20,7 @@ export function useCreateRecipe() {
 export function useDeleteRecipe() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => recipesApi.remove(id),
+    mutationFn: (id: string) => recipesApi.delete(id), // fix: era recipesApi.remove
     onSuccess:  () => qc.invalidateQueries({ queryKey: ['recipes'] }),
   })
 }
